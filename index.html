@@ -75,12 +75,21 @@
         const data = await reponse.json();
         const findWMO = key => data.features.find(o => o.properties.id === key || o.properties.icao === key);
         const routeCoordinates = [];
-        const route = (new URLSearchParams(window.location.search)).get('route');
+        const route = window.location.hash;
         if (route) {
-            for (wid of route.split('_')) {
+            for (wid of route.slice(1).split('_')) {
                 wmo = findWMO(wid);
                 if (wmo) {
-                    routeCoordinates.push(wmo.geometry.coordinates)
+                    const previousCoordinates = routeCoordinates.length > 0 ? routeCoordinates[routeCoordinates.length-1] : null;
+                    const coordinates = [...wmo.geometry.coordinates];
+                    if (previousCoordinates && Math.abs((coordinates[0] - previousCoordinates[0])) > 180) {
+                        if ((coordinates[0] - previousCoordinates[0]) >= 180) {
+                            coordinates[0] -= 360;
+                        } else if ((coordinates[0] - previousCoordinates[0]) < 180) {
+                            coordinates[0] += 360;
+                        }
+                    }
+                    routeCoordinates.push(coordinates);
                 }else{
                     routeCoordinates = [];
                     break;
@@ -209,7 +218,6 @@
         const showPopup = e => {
             const coordinates = e.features[0].geometry.coordinates.slice();
             const properties = e.features[0].properties;
-            console.log(properties)
 
             // Ensure that if the map is zoomed out such that
             // multiple copies of the feature are visible, the
