@@ -69,12 +69,6 @@
         renderWorldCopies: false,
         attributionControl: false
     });
-    map.addControl(new maplibregl.AttributionControl({
-        customAttribution: (source === 'oscar')
-            ? 'source <a href="https://oscar.wmo.int" target="_blank">oscar.wmo.int</a>'
-            : 'source <a href="https://www.ogimet.com" target="_blank">ogimet.com</a>',
-        compact: false
-    }));
 
     map.on('load', async () => {
         const reponse = await fetch((source === 'oscar') ? './data/oscar/oscar.geojson': './data/ogimet/ogimet.geojson');
@@ -93,6 +87,12 @@
                 }
             }
         }
+        map.addControl(new maplibregl.AttributionControl({
+            customAttribution: (source === 'oscar')
+                ? `${data.features.length} WMO from source <a href="https://oscar.wmo.int" target="_blank">oscar.wmo.int</a>`
+                : `${data.features.length} WMO from source <a href="https://www.ogimet.com" target="_blank">ogimet.com</a>`,
+            compact: false
+        }));
         map.addSource('route', {
             type: 'geojson',
             data: {
