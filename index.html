@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Create and style clusters</title>
+    <meta property="og:description" content="Use MapLibre GL JS' built-in functions to visualize points as clusters." />
+    <meta charset='utf-8'>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel='stylesheet' href='https://unpkg.com/maplibre-gl@4.1.1/dist/maplibre-gl.css' />
+    <script src='https://unpkg.com/maplibre-gl@4.1.1/dist/maplibre-gl.js'></script>
+    <style>
+        html, body {
+            height: 100%;
+        }
+        body, p, dd {
+            margin:0;
+            padding:0;
+        }
+        body {
+            display:grid;
+            grid-template-rows: 50px 1fr;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            background-color: #6a5acd; /* slateblue */
+        }
+        h1 {
+            align-self: center;
+            text-align: center;
+            font-weight: 200;
+            color:#f5f5f5; /* whitesmoke */
+        }
+        .wmo-popup {
+            display: grid;
+            grid-template-rows: 1fr;
+        }
+        .wmo-popup dl {
+            display: grid;
+            grid-template-columns: 8ch auto;
+            min-width: 150px;
+        }
+        .wmo-popup dt {
+            grid-column-start: 1;
+        }
+        .wmo-popup dt:after {
+            content: ":";
+        }
+        .wmo-popup dd {
+            grid-column-start: 2;
+        }
+        .wmo-popup .name {
+            font-weight: 700;
+            text-align: center;
+        }
+
+
+    </style>
+</head>
+<body>
+    <h1>WMO World Map</h1>
+    <div id="map"></div>
+<script>
+    const source = "ogimet";
+    const map = new maplibregl.Map({
+        container: 'map',
+        style: 'https://demotiles.maplibre.org/style.json', // style URL
+        center: [0, 50], // starting position [lng, lat]
+        zoom: 0.5, // starting zoom
+        renderWorldCopies: false,
+        attributionControl: false
+    });
+    map.addControl(new maplibregl.AttributionControl({
+        customAttribution: (source === 'oscar')
+            ? 'source <a href="https://oscar.wmo.int" target="_blank">oscar.wmo.int</a>'
+            : 'source <a href="https://www.ogimet.com" target="_blank">ogimet.com</a>',
+        compact: false
+    }));
+
+    map.on('load', async () => {
+        const reponse = await fetch((source === 'oscar') ? './data/oscar/oscar.geojson': './data/ogimet/ogimet.geojson');
+        const data = await reponse.json();
+        map.addSource('wmo', {
+            type: 'geojson',
+            data,
+            cluster: false,
+            clusterMaxZoom: 3, // Max zoom to cluster points on
+            clusterRadius: 50 // Radius of each cluster when clustering points (defaults to 50)
+        });
+
+        map.addLayer({
+            id: 'clusters',
+            type: 'circle',
+            source: 'wmo',
+            filter: ['has', 'point_count'],
+            paint: {
+                // Use step expressions (https://maplibre.org/maplibre-style-spec/#expressions-step)
+                // with three steps to implement three types of circles:
+                //   * Blue, 20px circles when point count is less than 100
+                //   * Yellow, 30px circles when point count is between 100 and 750
+                //   * Pink, 40px circles when point count is greater than or equal to 750
+                'circle-color': [
+                    'step',
+                    ['get', 'point_count'],
+                    '#51bbd6',
+                    100,
+                    '#f1f075',
+                    750,
+                    '#f28cb1'
+                ],
+                'circle-radius': [
+                    'step',
+                    ['get', 'point_count'],
+                    20,
+                    100,
+                    30,
+                    750,
+                    40
+                ]
+            }
+        });
+
+        map.addLayer({
+            id: 'cluster-count',
+            type: 'symbol',
+            source: 'wmo',
+            filter: ['has', 'point_count'],
+            layout: {
+                'text-field': '{point_count_abbreviated}',
+                //'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+                'text-size': 12
+            }
+        });
+
+        map.addLayer({
+            id: 'unclustered-point',
+            type: 'circle',
+            source: 'wmo',
+            filter: ['!', ['has', 'point_count']],
+            paint: {
+                'circle-color': '#6a5acd',
+                'circle-radius': 4,
+                'circle-stroke-width': 1,
+                'circle-stroke-color': '#f5f5f5'
+            }
+        });
+
+        // inspect a cluster on click
+        map.on('click', 'clusters', async (e) => {
+            const features = map.queryRenderedFeatures(e.point, {
+                layers: ['clusters']
+            });
+            const clusterId = features[0].properties.cluster_id;
+            const zoom = await map.getSource('wmo').getClusterExpansionZoom(clusterId);
+            map.easeTo({
+                center: features[0].geometry.coordinates,
+                zoom
+            });
+        });
+        // Create a popup, but don't add it to the map yet.
+        const popup = new maplibregl.Popup({
+            closeButton: false,
+            closeOnClick: false
+        });
+        const showPopup = e => {
+            const coordinates = e.features[0].geometry.coordinates.slice();
+            const properties = e.features[0].properties;
+            console.log(properties)
+
+            // Ensure that if the map is zoomed out such that
+            // multiple copies of the feature are visible, the
+            // popup appears over the copy being pointed to.
+            while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+                coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+            }
+
+            const descriptionLines = [];
+            if (properties["name"]) {
+                descriptionLines.push(`<p class="name">${properties["name"]}</p>`);
+            }
+            descriptionLines.push('<dl>');
+            const linkOrId = (source==='ogimet')
+                ? `<a href="https://www.ogimet.com/cgi-bin/gsynres?ord=REV&ndays=7&ind=${properties['id']}" target="_blank">${properties['id']}</a>`
+                : properties['id'];
+            descriptionLines.push(
+                `<dt class="id">id</dt>` +
+                `<dd> ${properties['icao'] ? properties['icao'] + ' / ' : ''}${linkOrId}</dd>`
+            );
+            if (properties["country"]) {
+                descriptionLines.push(`<dt class="country">country</dt><dd>${properties["country"]}</dd>`);
+            }
+            descriptionLines.push(`<dt class="oscar">oscar</dt><dd><a href="https://oscar.wmo.int/surface/index.html#/search/station/stationReportDetails/0-20000-0-${properties['id']}" target="_blank">0-20000-0-${properties['id']}</a></dd>`);
+            descriptionLines.push('</dl>')
+            if (e.type === 'click') {
+                popup.options.closeButton = true;
+            } else {
+                popup.options.closeButton = false;
+            }
+            popup.setLngLat(coordinates).setHTML(`<div class="wmo-popup">${descriptionLines.join('')}</div>`).addTo(map);
+        }
+
+        map.on('click', 'unclustered-point', showPopup);
+        // map.on('mouseover', 'unclustered-point', e => {
+        //     map.getCanvas().style.cursor = 'pointer';
+        //     showPopup(e);
+        // });
+        // map.on('mouseleave', 'unclustered-point', e => {
+        //     map.getCanvas().style.cursor = '';
+        //     popup.remove();
+        // });
+
+        map.on('mouseenter', 'clusters', () => {
+            map.getCanvas().style.cursor = 'pointer';
+        });
+        map.on('mouseleave', 'clusters', () => {
+            map.getCanvas().style.cursor = '';
+        });
+    });
+</script>
+</body>
+</html>
