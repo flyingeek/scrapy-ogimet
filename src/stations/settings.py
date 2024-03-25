@@ -95,6 +95,9 @@ TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
 FEED_EXPORT_ENCODING = "utf-8"
 LOG_FORMATTER = "stations.logformatter.PoliteLogFormatter"
 FEED_EXPORT_FIELDS = ['wid', 'icao', 'longitude', 'latitude']
+FEED_EXPORTERS = {
+    "geojson": "stations.exporters.GeoJsonItemExporter"
+}
 FEEDS = {
     '../data/%(name)s/%(name)s_%(time)s.csv': {
         'format': 'csv',
@@ -110,6 +113,16 @@ FEEDS = {
         'encoding': 'utf8',
         'store_empty': False,
         'indent': 4,
+        'item_export_kwargs': {
+            'export_empty_fields': True,
+        },
+    },
+    '../data/%(name)s/%(name)s.geojson': {
+        'format': 'geojson',
+        'encoding': 'utf8',
+        'store_empty': False,
+        'indent': 2,
+        'overwrite': True,
         'item_export_kwargs': {
             'export_empty_fields': True,
         },
