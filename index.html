@@ -49,6 +49,9 @@
             font-weight: 700;
             text-align: center;
         }
+        .wmo-popup a:focus-visible {
+            outline: none;
+        }
 
 
     </style>
@@ -61,7 +64,7 @@
     const map = new maplibregl.Map({
         container: 'map',
         style: 'https://demotiles.maplibre.org/style.json', // style URL
-        center: [0, 50], // starting position [lng, lat]
+        center: [0, 0], // starting position [lng, lat]
         zoom: 0.5, // starting zoom
         renderWorldCopies: false,
         attributionControl: false
@@ -76,6 +79,35 @@
     map.on('load', async () => {
         const reponse = await fetch((source === 'oscar') ? './data/oscar/oscar.geojson': './data/ogimet/ogimet.geojson');
         const data = await reponse.json();
+        const findWMO = key => data.features.find(o => o.properties.id === key || o.properties.icao === key);
+        const routeCoordinates = [];
+        const route = (new URLSearchParams(window.location.search)).get('route');
+        if (route) {
+            for (wid of route.split('_')) {
+                wmo = findWMO(wid);
+                if (wmo) {
+                    routeCoordinates.push(wmo.geometry.coordinates)
+                }else{
+                    routeCoordinates = [];
+                    break;
+                }
+            }
+        }
+        map.addSource('route', {
+            type: 'geojson',
+            data: {
+                type: "FeatureCollection",
+                features: [
+                    {
+                        type: 'Feature',
+                        geometry: {
+                            type: 'LineString',
+                            coordinates: routeCoordinates
+                        }
+                    }
+                ]
+            }
+        });
         map.addSource('wmo', {
             type: 'geojson',
             data,
@@ -141,6 +173,22 @@
             }
         });
 
+        map.addLayer({
+            id: 'route-layer',
+            type: 'line',
+            source: 'route',
+            visible: routeCoordinates.length > 1,
+            layout: {
+                'line-cap': 'round',
+                'line-join': 'round'
+            },
+            paint: {
+                'line-color': '#ed6498',
+                'line-width': 5,
+                'line-opacity': 0.8
+            }
+        });
+
         // inspect a cluster on click
         map.on('click', 'clusters', async (e) => {
             const features = map.queryRenderedFeatures(e.point, {
@@ -155,7 +203,7 @@
         });
         // Create a popup, but don't add it to the map yet.
         const popup = new maplibregl.Popup({
-            closeButton: false,
+            closeButton: true,
             closeOnClick: false
         });
         const showPopup = e => {
@@ -187,23 +235,17 @@
             }
             descriptionLines.push(`<dt class="oscar">oscar</dt><dd><a href="https://oscar.wmo.int/surface/index.html#/search/station/stationReportDetails/0-20000-0-${properties['id']}" target="_blank">0-20000-0-${properties['id']}</a></dd>`);
             descriptionLines.push('</dl>')
-            if (e.type === 'click') {
-                popup.options.closeButton = true;
-            } else {
-                popup.options.closeButton = false;
-            }
             popup.setLngLat(coordinates).setHTML(`<div class="wmo-popup">${descriptionLines.join('')}</div>`).addTo(map);
         }
 
         map.on('click', 'unclustered-point', showPopup);
-        // map.on('mouseover', 'unclustered-point', e => {
-        //     map.getCanvas().style.cursor = 'pointer';
-        //     showPopup(e);
-        // });
-        // map.on('mouseleave', 'unclustered-point', e => {
-        //     map.getCanvas().style.cursor = '';
-        //     popup.remove();
-        // });
+        map.on('mouseover', 'unclustered-point', e => {
+            map.getCanvas().style.cursor = 'pointer';
+            showPopup(e);
+        });
+        map.on('mouseleave', 'unclustered-point', e => {
+            map.getCanvas().style.cursor = '';
+        });
 
         map.on('mouseenter', 'clusters', () => {
             map.getCanvas().style.cursor = 'pointer';

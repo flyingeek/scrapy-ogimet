@@ -12,6 +12,8 @@ Extract in csv/json/geojson format the ogimet website or the oscar website.
 
 https://flyingeek.github.io/scrapy-ogimet/
 
+It is also possible to [draw a route](https://flyingeek.github.io/scrapy-ogimet/index.html?route=LFPG_LFPB_LFAT_07002_EGXT_03226_03155_03021_04283_BGAS_71665_CWFW_71691_CWST_CWHV_72614_KORF_74699_74783)
+
 ## Installation
 
 ```sh
