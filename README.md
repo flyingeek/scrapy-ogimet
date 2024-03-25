@@ -1,12 +1,16 @@
 
 # scrapy-ogimet
 
-Extraction des stations WMO connues par Ogimet.com. Pour chaque station on a:
+Extract in csv/json/geojson format the ogimet website or the oscar website.
 
-- **wid** l'index WMO
-- **icao** le nom icao ou '----'
-- **latitude** au format décimal
-- **longitude** au format décimal
+- **wid** WMO index
+- **latitude** decimal format
+- **longitude** decimal format
+- **icao** ICAO code or '----' (only for ogimet)
+
+## Interactive Map
+
+https://flyingeek.github.io/scrapy-ogimet/
 
 ## Installation
 
@@ -20,13 +24,8 @@ pip install -r requirements.txt
 ## Usage
 
 ```sh
+source venv/bin/activate
 cd src
 scrapy crawl ogimet -L INFO
-# Les données sont extraites dans data/
-```
-
-Pour se limiter à un pays:
-
-```sh
-scrapy parse "https://ogimet.com/display_stations.php?lang=en&tipo=AND&estado=france&Send=Send" --spider=ogimet -c parse_stations  --cbkwargs='{"country": "france"}'
+# Data are extracted in data
 ```
