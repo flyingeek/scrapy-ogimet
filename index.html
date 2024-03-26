@@ -94,9 +94,9 @@
 <script>
     const data = {};
     const hash = window.location.hash;
-    const getAttribution = (source) => (source === 'ogimet')
-        ? `${data['ogimet'].features.length} WMO from source <a href="https://oscar.wmo.int" target="_blank">oscar.wmo.int</a>`
-        : `${data['oscar'].features.length} WMO from source <a href="https://www.ogimet.com" target="_blank">ogimet.com</a>`;
+    const getAttribution = (source) => (source === 'oscar')
+        ? `${data['oscar'].features.length} WMO from source <a href="https://oscar.wmo.int" target="_blank">oscar.wmo.int</a>`
+        : `${data['ogimet'].features.length} WMO from source <a href="https://www.ogimet.com" target="_blank">ogimet.com</a>`;
     const map = new maplibregl.Map({
         container: 'map',
         style: 'https://demotiles.maplibre.org/style.json', // style URL
