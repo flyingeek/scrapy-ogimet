@@ -8,16 +8,12 @@ from itemadapter import ItemAdapter
 from scrapy.exceptions import DropItem
 from stations.exceptions import DropInvalidStation, DropDuplicateStation, DropClosedStation, DropNotOperational, DropNotLandFixed
 
-def checkIds(wigos, wid):
-    if not re.match(r"^0-20000-0-\d{5}$", wigos):
-        raise DropInvalidStation(f"Rejected wigos {wigos}")
-    if not re.match(r"^\d{5}$", wid):
-        raise DropInvalidStation(f"Rejected wmo index {wid}")
 
 class InvalidOgimetInputPipeline:
     def process_item(self, item, spider):
         adapter = ItemAdapter(item)
-        checkIds(adapter["wigos"], adapter["wid"])
+        if not re.match(r"^\d{5}$", adapter["wid"]):
+            raise DropInvalidStation(f"Rejected wmo index {adapter["wid"]}")
         if '----' != adapter["closed"]:
             raise DropClosedStation(f"Rejected {adapter["wid"]}: closed on {adapter['closed']}")
         return item
@@ -25,7 +21,6 @@ class InvalidOgimetInputPipeline:
 class InvalidOscarInputPipeline:
     def process_item(self, item, spider):
         adapter = ItemAdapter(item)
-        checkIds(adapter["wigos"], adapter["wid"])
         if 'operational' != adapter["operational"]:
             raise DropNotOperational(f"Rejected {adapter["wid"]}: status {adapter['operational']}")
         if 'Land (fixed)' != adapter["type"]:

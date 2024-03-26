@@ -25,6 +25,8 @@ class GeoJsonItemExporter(JsonItemExporter):
 
     def export_item(self, item):
         properties = dict(id=item["wid"])
+        if ("wigos" in item and item["wigos"] != '0-0-0-MISSING'):
+            properties["wigos"] = item["wigos"]
         if ("icao" in item and item["icao"] != ICAO_DEFAULT):
             properties["icao"] = item["icao"]
         if ("name" in item):

@@ -1,5 +1,6 @@
 import logging
 import scrapy
+import re
 from stations.items import OscarStationItem
 
 class OscarSpider(scrapy.Spider):
@@ -27,9 +28,13 @@ class OscarSpider(scrapy.Spider):
     def parse_stations(self, response):
         logging.info(f"Parsing oscar stations")
         for item in response.json()["stationSearchResults"]:
+            wid = None
+            m = re.search(r"-0-(\d{5})$", item["wigosId"])
+            if m:
+                wid = m.group(1)
             yield OscarStationItem(
                 wigos=item["wigosId"],
-                wid=item["wigosId"].rpartition('-')[-1] or item["wigosId"],
+                wid=wid,
                 name=item["name"],
                 country=item["territory"],
                 latitude=item["latitude"],
