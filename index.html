@@ -52,56 +52,91 @@
         .wmo-popup a:focus-visible {
             outline: none;
         }
-
+        .map-overlay {
+            position: absolute;
+            z-index: 1;
+        }
+        .map-overlay top {
+            top: 0px;
+        }
+        .map-overlay fieldset {
+            border: none;
+        }
+        .map-overlay select {
+            font-size: larger;
+            padding: 5px;
+            background-color: whitesmoke;
+            color: slateblue;
+            font-weight: 300;
+        }
 
     </style>
 </head>
 <body>
     <h1>WMO World Map</h1>
-    <div id="map"></div>
+    <div id="map">
+        <div class="map-overlay top">
+            <div class="map-overlay-inner">
+                <fieldset class="select-fieldset">
+                    <select id="source" name="source" title="source of data">
+                        <option value="ogimet" selected>Ogimet</option>
+                        <option value="oscar">Oscar</option>
+                         <hr />
+                        <optgroup label="Cluster">
+                            <option value="ogimet_cluster">Ogimet</option>
+                            <option value="oscar_cluster">Oscar</option>
+                        </optgroup>
+                    </select>
+                </fieldset>
+            </div>
+        </div>
+    </div>
 <script>
-    const source = "ogimet";
+    const data = {};
+    const hash = window.location.hash;
+    const getAttribution = (source) => (source === 'ogimet')
+        ? `${data['ogimet'].features.length} WMO from source <a href="https://oscar.wmo.int" target="_blank">oscar.wmo.int</a>`
+        : `${data['oscar'].features.length} WMO from source <a href="https://www.ogimet.com" target="_blank">ogimet.com</a>`;
     const map = new maplibregl.Map({
         container: 'map',
         style: 'https://demotiles.maplibre.org/style.json', // style URL
         center: [0, 0], // starting position [lng, lat]
         zoom: 0.5, // starting zoom
         renderWorldCopies: false,
-        attributionControl: false
+        // attributionControl: false
     });
-
+    document.getElementById('source').addEventListener('change', e => {
+        const [source, cluster] = e.target.value.split("_");
+        const wmoSource = map.getSource('wmo');
+        wmoSource.workerOptions.cluster = !!cluster;
+        wmoSource.setData(data[source]);
+        wmoSource.attribution = getAttribution(source);
+    });
     map.on('load', async () => {
-        const reponse = await fetch((source === 'oscar') ? './data/oscar/oscar.geojson': './data/ogimet/ogimet.geojson');
-        const data = await reponse.json();
-        const findWMO = key => data.features.find(o => o.properties.id === key || o.properties.icao === key);
+        const initialSource = document.getElementById('source').value;
+        const route = (hash.indexOf('_') > 0) ? hash.slice(1) : '';
+        data['ogimet'] = await fetch('./data/ogimet/ogimet.geojson').then(response => response.json());
+        const findWMO = (widOrIcao) => data['ogimet'].features.find(o => o.properties.id === widOrIcao || o.properties.icao === widOrIcao);
         const routeCoordinates = [];
-        const route = window.location.hash;
-        if (route) {
-            for (wid of route.slice(1).split('_')) {
-                wmo = findWMO(wid);
-                if (wmo) {
-                    const previousCoordinates = routeCoordinates.length > 0 ? routeCoordinates[routeCoordinates.length-1] : null;
-                    const coordinates = [...wmo.geometry.coordinates];
-                    if (previousCoordinates && Math.abs((coordinates[0] - previousCoordinates[0])) > 180) {
-                        if ((coordinates[0] - previousCoordinates[0]) >= 180) {
-                            coordinates[0] -= 360;
-                        } else if ((coordinates[0] - previousCoordinates[0]) < 180) {
-                            coordinates[0] += 360;
-                        }
-                    }
-                    routeCoordinates.push(coordinates);
-                }else{
-                    routeCoordinates = [];
-                    break;
+        //Transform list of WMO indexes to a list of coordinates
+        for (widOrIcao of route.split('_').filter(w => w !== '')) {
+            wmo = findWMO(widOrIcao);
+            if (!wmo) { // not valid input => abort
+                routeCoordinates = [];
+                break;
+            }
+            // adjust coordinates to allow maplibre to cross antemeridian
+            const startLng = routeCoordinates.length > 0 ? routeCoordinates[routeCoordinates.length-1][0] : null;
+            const endLng = wmo.geometry.coordinates[0];
+            if (startLng && Math.abs((endLng - startLng)) > 180) {
+                if (endLng - startLng >= 180) {
+                    endLng -= 360;
+                } else if (endLng - startLng < 180) {
+                    endLng += 360;
                 }
             }
+            routeCoordinates.push([endLng, wmo.geometry.coordinates[1]]);
         }
-        map.addControl(new maplibregl.AttributionControl({
-            customAttribution: (source === 'oscar')
-                ? `${data.features.length} WMO from source <a href="https://oscar.wmo.int" target="_blank">oscar.wmo.int</a>`
-                : `${data.features.length} WMO from source <a href="https://www.ogimet.com" target="_blank">ogimet.com</a>`,
-            compact: false
-        }));
         map.addSource('route', {
             type: 'geojson',
             data: {
@@ -119,10 +154,11 @@
         });
         map.addSource('wmo', {
             type: 'geojson',
-            data,
+            data: data[initialSource],
             cluster: false,
             clusterMaxZoom: 3, // Max zoom to cluster points on
-            clusterRadius: 50 // Radius of each cluster when clustering points (defaults to 50)
+            clusterRadius: 50, // Radius of each cluster when clustering points (defaults to 50)
+            attribution: getAttribution(initialSource)
         });
 
         map.addLayer({
@@ -231,17 +267,19 @@
                 descriptionLines.push(`<p class="name">${properties["name"]}</p>`);
             }
             descriptionLines.push('<dl>');
-            const linkOrId = (source==='ogimet')
+            const linkOrId = (initialSource==='ogimet')
                 ? `<a href="https://www.ogimet.com/cgi-bin/gsynres?ord=REV&ndays=7&ind=${properties['id']}" target="_blank">${properties['id']}</a>`
                 : properties['id'];
             descriptionLines.push(
-                `<dt class="id">id</dt>` +
+                `<dt class="wmo">wmo</dt>` +
                 `<dd> ${properties['icao'] ? properties['icao'] + ' / ' : ''}${linkOrId}</dd>`
             );
             if (properties["country"]) {
                 descriptionLines.push(`<dt class="country">country</dt><dd>${properties["country"]}</dd>`);
             }
-            descriptionLines.push(`<dt class="oscar">oscar</dt><dd><a href="https://oscar.wmo.int/surface/index.html#/search/station/stationReportDetails/0-20000-0-${properties['id']}" target="_blank">0-20000-0-${properties['id']}</a></dd>`);
+            if (properties["wigos"]) {
+                descriptionLines.push(`<dt class="oscar">oscar</dt><dd><a href="https://oscar.wmo.int/surface/index.html#/search/station/stationReportDetails/${properties['wigos']}" target="_blank">${properties['wigos']}</a></dd>`);
+            }
             descriptionLines.push('</dl>')
             popup.setLngLat(coordinates).setHTML(`<div class="wmo-popup">${descriptionLines.join('')}</div>`).addTo(map);
         }
@@ -261,6 +299,7 @@
         map.on('mouseleave', 'clusters', () => {
             map.getCanvas().style.cursor = '';
         });
+        data['oscar'] = await fetch('./data/oscar/oscar.geojson').then(response => response.json());
     });
 </script>
 </body>
