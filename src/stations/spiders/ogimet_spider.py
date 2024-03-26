@@ -1,6 +1,10 @@
 import logging
 import scrapy
 from stations.items import OgimetStationItem, OgimetStationLoader
+import unicodedata
+
+def strip_accents(s):
+    return ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
 
 class StationsSpider(scrapy.Spider):
     name = "ogimet"
@@ -29,9 +33,9 @@ class StationsSpider(scrapy.Spider):
             yield scrapy.FormRequest(
                 url="https://ogimet.com/display_stations.php",
                 method="GET",
-                formdata={"lang": "en", "tipo": "AND", "estado": country.lower(), "Send": "Send"},
+                formdata={"lang": "en", "tipo": "AND", "estado": strip_accents(country).lower(), "Send": "Send"},
                 callback=self.parse_stations,
-                cb_kwargs={"country": country},
+                cb_kwargs={"country": strip_accents(country)},
             )
 
     def parse_stations(self, response, country):
