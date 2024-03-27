@@ -11,7 +11,7 @@
     "sprite": [
         {
             "id": "maki",
-            "url": "sprites/maki_sprite"
+            "url": "./sprites/maki_sprite"
         }
     ],
     "layers": [
