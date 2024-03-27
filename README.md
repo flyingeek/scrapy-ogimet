@@ -35,4 +35,5 @@ scrapy crawl ogimet -L INFO
 scrapy crawl oscar -L INFO
 ```
 
-Data are extracted in the data subfolder as csv, json and geojson
+Since the interactive map runs on github pages from the docs folder,
+data are extracted in the docs/data subfolder as csv, json and geojson

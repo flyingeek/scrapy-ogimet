@@ -96,7 +96,7 @@ FEED_EXPORTERS = {
     "geojson": "stations.exporters.GeoJsonItemExporter"
 }
 FEEDS = {
-    '../data/%(name)s/%(name)s_%(time)s.csv': {
+    '../docs/data/%(name)s/%(name)s_%(time)s.csv': {
         'format': 'csv',
         'encoding': 'utf8',
         'store_empty': False,
@@ -106,7 +106,7 @@ FEEDS = {
             'export_empty_fields': True,
         },
     },
-    '../data/%(name)s/%(name)s_%(time)s.json': {
+    '../docs/data/%(name)s/%(name)s_%(time)s.json': {
         'format': 'json',
         'encoding': 'utf8',
         'store_empty': False,
@@ -116,7 +116,7 @@ FEEDS = {
             'export_empty_fields': True,
         },
     },
-    '../data/%(name)s/%(name)s.geojson': {
+    '../docs/data/%(name)s/%(name)s.geojson': {
         'format': 'geojson',
         'encoding': 'utf8',
         'store_empty': False,
