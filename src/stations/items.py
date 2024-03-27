@@ -10,7 +10,7 @@ from scrapy.exceptions import DropItem
 from itemloaders.processors import TakeFirst, Compose
 from decimal import *
 
-NOT_CLOSED = '----'
+OGIMET_EMPTY = '----'
 MISSING_WIGOS = '0-0-0-MISSING'
 
 def convert(dms):
@@ -44,7 +44,7 @@ class OgimetStationLoader(ItemLoader):
     latitude_out = Compose(TakeFirst(), convert)
     longitude_out = Compose(TakeFirst(), convert)
     wigos_out = Compose(TakeFirst(), lambda wigos : None if wigos == MISSING_WIGOS else wigos, stop_on_none=False)
-    closed_out = Compose(TakeFirst(), lambda closed: False if closed == NOT_CLOSED else True)
+    closed_out = Compose(TakeFirst(), lambda closed: False if closed == OGIMET_EMPTY else True)
 
 
 class OgimetStationItem(scrapy.Item):
@@ -63,7 +63,6 @@ class OgimetStationItem(scrapy.Item):
 
 class OscarStationLoader(ItemLoader):
     default_output_processor = TakeFirst()
-    operational_out = Compose(TakeFirst(), lambda operational: True if operational == "operational" else False)
     wigosStationIdentifiers_out = Compose(sort_primary_first)
 
 
@@ -87,7 +86,7 @@ class StationFilter:
 
     def accepts(self, item):
         if isinstance(item, OscarStationItem):
-            if "operational" in item and not item["operational"]:
+            if "operational" in item and item["operational"] != 'operational':
                 return False
         elif isinstance(item, OgimetStationItem):
             if "closed" in item and item["closed"]:

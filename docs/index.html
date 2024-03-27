@@ -44,8 +44,11 @@
         .wmo-popup dt:after {
             content: ":";
         }
-        .wmo-popup dt:has( + dd:not(:has(*))) {
-            font-weight: normal;
+        dt.oscar:not(:has(+ dd>a)) {
+            color: red;
+        }
+        dt.wmo:not(:has(+ dd>a)) {
+            color: darkorange;
         }
         .wmo-popup dd {
             grid-column-start: 2;
@@ -59,11 +62,11 @@
         }
         .map-overlay {
             position: absolute;
-            top: 20px;
+
             z-index: 1;
         }
-        .map-overlay top {
-            top: 0px;
+        .map-overlay.top {
+            top: 20px;
         }
         .map-overlay fieldset {
             border: none;
@@ -216,7 +219,7 @@
                 ['!', ['has', 'point_count']],
                 ['all',
                         ['!=', ["get", "closed"], true],
-                        ['!=', ["get", "operational"], false],
+                        ['!=', ["get", "operational"], 'operational'],
                         ['!=', ["get", "icao"], null]
                 ]
             ],
@@ -242,18 +245,47 @@
             }
         });
         map.addLayer({
-            id: 'unclustered-point-not-operational',
+            id: 'unclustered-point-closed',
             type: 'symbol',
             source: 'wmo',
             filter: ['all',
                 ['!', ['has', 'point_count']],
                 ['any',
                         ['==', ["get", "closed"], true],
-                        ['all', ['has', 'operational'], ['==', ["get", "operational"], false]]
+                        ['==', ["get", "operational"], 'closed']
                 ]
             ],
             layout: {
                 'icon-image': 'maki:cross',
+                'icon-size': [
+                    "interpolate", ["linear"], ["zoom"],
+                    // zoom is 1 (or less
+                    1, 0.6,
+                    // zoom is 10 (or greater)
+                    10, 2.4
+                ],
+            },
+            paint: {
+                'icon-color': "#6a5acd",
+                 'icon-halo-color': [
+                    'case',
+                    ["==", ['get', 'wid'], null], '#ffa323',
+                    ["==",['get', 'wigos'], null], '#f00',
+                    "rgba(0, 0, 0, 0)"
+                ],
+                'icon-halo-width': 1
+            }
+        });
+        map.addLayer({
+            id: 'unclustered-point-not-operational',
+            type: 'symbol',
+            source: 'wmo',
+            filter: ['all',
+                ['!', ['has', 'point_count']],
+                ['all', ['has', 'operational'], ['!=', ["get", "operational"], 'operational'], ['!=', ["get", "operational"], 'closed']]
+            ],
+            layout: {
+                'icon-image': 'maki:caution',
                 'icon-size': [
                     "interpolate", ["linear"], ["zoom"],
                     // zoom is 1 (or less
@@ -281,7 +313,7 @@
                 ['!', ['has', 'point_count']],
                 ['all',
                         ['!=', ["get", "closed"], true],
-                        ['!=', ["get", "operational"], false],
+                        ["any", ["!", ["has", "operational"]], ['==', ["get", "operational"], 'operational']],
                         ["any", ["!", ["has", "icao"]], ['==', ["get", "icao"], null]]
                 ]
             ],
@@ -360,12 +392,16 @@
                 descriptionLines.push(`<p class="name">${properties["name"]}</p>`);
             }
             descriptionLines.push('<dl>');
-            const linkOrId = (initialSource==='ogimet')
-                ? `<a href="https://www.ogimet.com/cgi-bin/gsynres?ord=REV&ndays=7&ind=${properties['wid']}" target="_blank">${properties['wid']}</a>`
-                : properties['wid'];
+            const parts = [];
+            if (properties['icao']) parts.push(properties['icao']);
+            if (properties['wid']) {
+                parts.push(`<a href="https://www.ogimet.com/cgi-bin/gsynres?ord=REV&ndays=7&ind=${properties['wid']}" target="_blank">${properties['wid']}</a>`);
+            } else {
+                parts.push(`missing`);
+            }
             descriptionLines.push(
                 `<dt class="wmo">wmo</dt>` +
-                `<dd> ${properties['icao'] ? properties['icao'] + ' / ' : ''}${properties['wid'] ? linkOrId : ''}</dd>`
+                `<dd> ${parts.join('&nbsp;/&nbsp;')}</dd>`
             );
             if (properties["country"]) {
                 descriptionLines.push(`<dt class="country">country</dt><dd>${properties["country"]}</dd>`);
@@ -375,12 +411,14 @@
                 descriptionLines.push(`<dt class="oscar">oscar</dt><dd>${links.join('<br>')}</dd>`);
             }else if (properties["wigos"]) {
                 descriptionLines.push(`<dt class="oscar">oscar</dt><dd><a href="https://oscar.wmo.int/surface/index.html#/search/station/stationReportDetails/${properties['wigos']}" target="_blank">${properties['wigos']}</a></dd>`);
+            }else{
+                descriptionLines.push(`<dt class="oscar">oscar</dt><dd>missing</dd>`)
             }
             if (properties["closed"]){
                 descriptionLines.push(`<dt class="status">status</dt><dd>closed</dd`)
             }
-            if (properties["operational"] === false){
-                descriptionLines.push(`<dt class="status">status</dt><dd>not operational</dd>`)
+            if (properties["operational"]){
+                descriptionLines.push(`<dt class="status">status</dt><dd>${properties["operational"]}</dd>`)
             }
             descriptionLines.push('</dl>')
             popup.setLngLat(coordinates).setHTML(`<div class="wmo-popup">${descriptionLines.join('')}</div>`).addTo(map);
@@ -394,14 +432,17 @@
         map.on('click', 'unclustered-point-operational', showPopup);
         map.on('click', 'unclustered-airport-operational', showPopup);
         map.on('click', 'unclustered-point-not-operational', showPopup);
+        map.on('click', 'unclustered-point-closed', showPopup);
 
         map.on('mouseover', 'unclustered-point-operational', cursorPointerAndShowPopup);
         map.on('mouseover', 'unclustered-airport-operational', cursorPointerAndShowPopup);
         map.on('mouseover', 'unclustered-point-not-operational', cursorPointerAndShowPopup);
+        map.on('mouseover', 'unclustered-point-closed', cursorPointerAndShowPopup);
 
         map.on('mouseleave', 'unclustered-point-operational', cursorDefault);
         map.on('mouseleave', 'unclustered-airport-operational', cursorDefault);
         map.on('mouseleave', 'unclustered-point-not-operational', cursorDefault);
+        map.on('mouseleave', 'unclustered-point-closed', cursorDefault);
 
         map.on('mouseenter', 'clusters', () => map.getCanvas().style.cursor = 'pointer');
         map.on('mouseleave', 'clusters', cursorDefault);
