@@ -19,20 +19,23 @@ class OscarSpider(scrapy.Spider):
 
 
     def start_requests(self):
-        urls = [
-            "https://gist.github.com/flyingeek/54caad59410a1f4641d480473ec824c3/raw/oscar_wmo_stations.json"
-            # "https://oscar.wmo.int/surface/rest/api/search/station?facilityType=landFixed&programAffiliation=GOSGeneral,RBON,GBON,RBSN,RBSNp,RBSNs,RBSNsp,RBSNst,RBSNt,ANTON,ANTONt&variable=216&variable=224&variable=227&variable=256&variable=310&variable=12000",
-        ]
-        for url in urls:
-            yield scrapy.Request(url=url, callback=self.parse_stations)
+        if not hasattr(self, 'url') or self.url == 'gist':
+            url = "https://gist.github.com/flyingeek/54caad59410a1f4641d480473ec824c3/raw/oscar_wmo_stations.json"
+        elif self.url == 'live':
+            url = "https://oscar.wmo.int/surface/rest/api/search/station?facilityType=landFixed&programAffiliation=GOSGeneral,RBON,GBON,RBSN,RBSNp,RBSNs,RBSNsp,RBSNst,RBSNt,ANTON,ANTONt&variable=216&variable=224&variable=227&variable=256&variable=310&variable=12000"
+        else:
+            url = self.url
+        yield scrapy.Request(url=url, callback=self.parse_stations)
 
     def parse_stations(self, response):
         logging.info(f"Parsing oscar stations")
         for item in response.json()["stationSearchResults"]:
             wid = None
-            m = re.search(r"^0-20000-0-(\d{5})$", item["wigosId"])
-            if m:
-                wid = m.group(1)
+            for wigos in item["wigosStationIdentifiers"]:
+                m = re.search(r"^0-20000-0-(\d{5})$", wigos['wigosStationIdentifier'])
+                if m:
+                    wid = m.group(1)
+                    break
             loader = OscarStationLoader(OscarStationItem())
             loader.add_value('wigos', item["wigosId"])
             loader.add_value('wid', wid)

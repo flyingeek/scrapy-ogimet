@@ -33,6 +33,10 @@ def only_with_letters(icao):
         return icao
     return None # also for '----'
 
+def sort_primary_first(values):
+    primary = [o['wigosStationIdentifier'] for o in values if o['primary'] == True]
+    others = [o['wigosStationIdentifier'] for o in values if o['primary'] == False]
+    return primary + others
 
 class OgimetStationLoader(ItemLoader):
     default_output_processor = TakeFirst()
@@ -45,37 +49,35 @@ class OgimetStationLoader(ItemLoader):
 
 class OgimetStationItem(scrapy.Item):
     item_uid = 'wid' # used by DuplicatesPipeline
-    wigos = scrapy.Field(geojson_property=True)
-    wid = scrapy.Field(geojson_property=True)
-    icao = scrapy.Field(geojson_property=True)
-    name = scrapy.Field(geojson_property=True)
+    wigos = scrapy.Field()
+    wid = scrapy.Field()
+    icao = scrapy.Field()
+    name = scrapy.Field()
     longitude = scrapy.Field()
     latitude = scrapy.Field()
-    altitude = scrapy.Field()
-    established = scrapy.Field()
-    closed = scrapy.Field(geojson_property=True)
-    country = scrapy.Field(geojson_property=True)
+    altitude = scrapy.Field(geojson_property=False)
+    established = scrapy.Field(geojson_property=False)
+    closed = scrapy.Field()
+    country = scrapy.Field()
 
 
 class OscarStationLoader(ItemLoader):
     default_output_processor = TakeFirst()
     operational_out = Compose(TakeFirst(), lambda operational: True if operational == "operational" else False)
+    wigosStationIdentifiers_out = Compose(sort_primary_first)
 
 
 class OscarStationItem(scrapy.Item):
     item_uid = 'wigos' # used by DuplicatesPipeline
-    wigos = scrapy.Field(geojson_property=True)
-    wid = scrapy.Field(geojson_property=True)
-    name = scrapy.Field(geojson_property=True)
-    country = scrapy.Field(geojson_property=True)
+    wigos = scrapy.Field()
+    wid = scrapy.Field()
+    name = scrapy.Field()
+    country = scrapy.Field()
     latitude = scrapy.Field()
     longitude = scrapy.Field()
-    operational = scrapy.Field(
-        geojson_property=True,
-        serializer=lambda operational: True if operational == "operational" else False,
-    )
-    type = scrapy.Field()
-    wigosStationIdentifiers = scrapy.Field(geojson_property=True)
+    operational = scrapy.Field()
+    type = scrapy.Field(geojson_property=False)
+    wigosStationIdentifiers = scrapy.Field()
 
 
 # Filter Class used for csv/json only (not geojson)

@@ -24,8 +24,8 @@ class GeoJsonItemExporter(JsonItemExporter):
 
     def export_item(self, item):
         fields = item.fields
-        export_properties = [k for k in fields if "geojson_property" in fields[k] and fields[k]["geojson_property"]==True]
-        properties = {k: item.get(k, None) for k in export_properties}
+        export_properties = [k for k in fields if "geojson_property" not in fields[k] or fields[k]["geojson_property"]==False]
+        properties = {k: item.get(k, None) for k in export_properties if k != 'latitude' and k != 'longitude'}
         itemdict = dict(
             type='Feature',
             geometry=dict(type='Point', coordinates=[item["longitude"], item["latitude"]]),
