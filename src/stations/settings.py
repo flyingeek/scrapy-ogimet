@@ -63,8 +63,6 @@ TELNETCONSOLE_ENABLED = False
 # Configure item pipelines
 # See https://docs.scrapy.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
-    "stations.pipelines.InvalidOgimetInputPipeline": 300,
-    # "stations.pipelines.InvalidLatLonPipeline": 350,
     "stations.pipelines.DuplicatesPipeline": 400,
 }
 
@@ -94,7 +92,6 @@ REQUEST_FINGERPRINTER_IMPLEMENTATION = "2.7"
 TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
 FEED_EXPORT_ENCODING = "utf-8"
 LOG_FORMATTER = "stations.logformatter.PoliteLogFormatter"
-FEED_EXPORT_FIELDS = ['wid', 'icao', 'longitude', 'latitude']
 FEED_EXPORTERS = {
     "geojson": "stations.exporters.GeoJsonItemExporter"
 }
@@ -103,7 +100,8 @@ FEEDS = {
         'format': 'csv',
         'encoding': 'utf8',
         'store_empty': False,
-        'indent': 4,
+        'indent': 2,
+        'item_filter': 'stations.items.StationFilter', # only open/operational stations in csv
         'item_export_kwargs': {
             'export_empty_fields': True,
         },
@@ -112,7 +110,8 @@ FEEDS = {
         'format': 'json',
         'encoding': 'utf8',
         'store_empty': False,
-        'indent': 4,
+        'indent': 2,
+        'item_filter': 'stations.items.StationFilter', # only open/operational stations in json
         'item_export_kwargs': {
             'export_empty_fields': True,
         },

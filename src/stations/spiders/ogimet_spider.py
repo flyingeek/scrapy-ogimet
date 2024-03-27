@@ -13,30 +13,31 @@ class StationsSpider(scrapy.Spider):
     def update_settings(cls, settings):
         super().update_settings(settings)
         settings.set("DOWNLOAD_DELAY", 10, priority="spider")
-        settings.set("FEED_EXPORT_FIELDS", ['wid', 'icao', 'longitude', 'latitude'], priority="spider")
+        settings.set("FEED_EXPORT_FIELDS", ['wid', 'icao', 'wigos', 'longitude', 'latitude'], priority="spider")
         settings.set("ITEM_PIPELINES",{
-            "stations.pipelines.InvalidOgimetInputPipeline": 300,
+            "stations.pipelines.OgimetInvalidPipeline": 310,
             "stations.pipelines.DuplicatesPipeline": 400
         }, priority="spider")
 
     def start_requests(self):
-        urls = [
-            "https://ogimet.com/usynops.phtml.en",
-        ]
-        for url in urls:
-            yield scrapy.Request(url=url, callback=self.parse_countries)
+        if hasattr(self, 'country'):
+            yield self.countryFormRequest(self.country)
+        else:
+            yield scrapy.Request(url="https://ogimet.com/usynops.phtml.en", callback=self.parse_countries)
 
-    def parse_countries(self, response):
-        countries = response.css("select[name=estado] option::text").getall()
-        # countries = ['spain']
-        for country in countries:
-            yield scrapy.FormRequest(
+    def countryFormRequest(self, country):
+        return scrapy.FormRequest(
                 url="https://ogimet.com/display_stations.php",
                 method="GET",
                 formdata={"lang": "en", "tipo": "AND", "estado": strip_accents(country).lower(), "Send": "Send"},
                 callback=self.parse_stations,
                 cb_kwargs={"country": strip_accents(country)},
             )
+
+    def parse_countries(self, response):
+        countries = response.css("select[name=estado] option::text").getall()
+        for country in countries:
+            yield self.countryFormRequest(country)
 
     def parse_stations(self, response, country):
         logging.info(f"Parsing ogimet stations for {country}")
@@ -52,4 +53,5 @@ class StationsSpider(scrapy.Spider):
             loader.add_xpath("altitude", 'td[8]//text()')
             loader.add_xpath("established", 'td[9]//text()')
             loader.add_xpath("closed", 'td[10]//text()')
-            yield loader.load_item()
+            item = loader.load_item()
+            yield item

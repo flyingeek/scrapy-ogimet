@@ -1,6 +1,5 @@
 from scrapy.exporters import JsonItemExporter
 from scrapy.utils.python import to_bytes
-from stations.items import ICAO_DEFAULT
 
 class GeoJsonItemExporter(JsonItemExporter):
 
@@ -24,15 +23,9 @@ class GeoJsonItemExporter(JsonItemExporter):
         self.file.write(b'}')
 
     def export_item(self, item):
-        properties = dict(id=item["wid"])
-        if ("wigos" in item and item["wigos"] != '0-0-0-MISSING'):
-            properties["wigos"] = item["wigos"]
-        if ("icao" in item and item["icao"] != ICAO_DEFAULT):
-            properties["icao"] = item["icao"]
-        if ("name" in item):
-            properties["name"] = item["name"]
-        if ("country" in item):
-            properties["country"] = item["country"]
+        fields = item.fields
+        export_properties = [k for k in fields if "geojson_property" in fields[k] and fields[k]["geojson_property"]==True]
+        properties = {k: item.get(k, None) for k in export_properties}
         itemdict = dict(
             type='Feature',
             geometry=dict(type='Point', coordinates=[item["longitude"], item["latitude"]]),

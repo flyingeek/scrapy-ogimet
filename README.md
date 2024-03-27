@@ -3,10 +3,9 @@
 
 Extract in csv/json/geojson format the ogimet website or the oscar website.
 
-- **wid** WMO index
-- **latitude** decimal format
-- **longitude** decimal format
-- **icao** ICAO code or '----' (only for ogimet)
+The CSV/JSON file contains only open or operational stations.
+The GEOJSON file does not apply this filter and instead you find in the properties
+a closed attribute for ogimet or an operational attribute for oscar.
 
 ## Interactive Map
 
@@ -28,6 +27,12 @@ pip install -r requirements.txt
 ```sh
 source venv/bin/activate
 cd src
+# ogimet for France only
+scrapy crawl ogimet -L INFO -a country=france
+# ogimet all countries
 scrapy crawl ogimet -L INFO
-# Data are extracted in data
+# oscar can only fetch all countries
+scrapy crawl oscar -L INFO
 ```
+
+Data are extracted in the data subfolder as csv, json and geojson

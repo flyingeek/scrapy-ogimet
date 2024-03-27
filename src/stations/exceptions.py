@@ -1,18 +1,24 @@
 import logging
 from scrapy.exceptions import DropItem
 
-
-class DropInvalidStation(DropItem):
+class PoliteDropItem(DropItem):
     polite_loglevel = logging.DEBUG
+    def __init__(self, *a, **kw):
+        self.polite_loglevel = kw.pop("polite_log_level", self.polite_loglevel)
+        super().__init__(*a)
 
-class DropDuplicateStation(DropItem):
-    polite_loglevel = logging.DEBUG
 
-class DropClosedStation(DropItem):
-    polite_loglevel = logging.DEBUG
+class DropInvalidStation(PoliteDropItem):
+    pass
 
-class DropNotOperational(DropItem):
-    polite_loglevel = logging.DEBUG
+class DropDuplicateStation(PoliteDropItem):
+    pass
 
-class DropNotLandFixed(DropItem):
-    polite_loglevel = logging.DEBUG
+class DropClosedStation(PoliteDropItem):
+    pass
+
+class DropNotOperational(PoliteDropItem):
+    pass
+
+class DropNotLandFixed(PoliteDropItem):
+    pass

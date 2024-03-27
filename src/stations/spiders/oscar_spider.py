@@ -1,7 +1,7 @@
 import logging
 import scrapy
 import re
-from stations.items import OscarStationItem
+from stations.items import OscarStationItem, OscarStationLoader
 
 class OscarSpider(scrapy.Spider):
     name = "oscar"
@@ -9,10 +9,11 @@ class OscarSpider(scrapy.Spider):
     @classmethod
     def update_settings(cls, settings):
         super().update_settings(settings)
+        print(OscarStationItem.fields)
         settings.set("DOWNLOAD_DELAY", 0, priority="spider")
-        settings.set("FEED_EXPORT_FIELDS", ['wid', 'longitude', 'latitude'], priority="spider")
+        settings.set("FEED_EXPORT_FIELDS", ['wigos', 'wid', 'longitude', 'latitude'], priority="spider")
         settings.set("ITEM_PIPELINES",{
-            "stations.pipelines.InvalidOscarInputPipeline": 300,
+            "stations.pipelines.OscarWrongTypePipeline": 300,
             "stations.pipelines.DuplicatesPipeline": 400
             }, priority="spider")
 
@@ -29,16 +30,17 @@ class OscarSpider(scrapy.Spider):
         logging.info(f"Parsing oscar stations")
         for item in response.json()["stationSearchResults"]:
             wid = None
-            m = re.search(r"-0-(\d{5})$", item["wigosId"])
+            m = re.search(r"^0-20000-0-(\d{5})$", item["wigosId"])
             if m:
                 wid = m.group(1)
-            yield OscarStationItem(
-                wigos=item["wigosId"],
-                wid=wid,
-                name=item["name"],
-                country=item["territory"],
-                latitude=item["latitude"],
-                longitude=item["longitude"],
-                operational=item["stationStatusCode"],
-                type=item["stationTypeName"],
-            )
+            loader = OscarStationLoader(OscarStationItem())
+            loader.add_value('wigos', item["wigosId"])
+            loader.add_value('wid', wid)
+            loader.add_value('name', item["name"])
+            loader.add_value('country', item["territory"])
+            loader.add_value('latitude', item["latitude"])
+            loader.add_value('longitude', item["longitude"])
+            loader.add_value('operational', item["stationStatusCode"])
+            loader.add_value('type', item["stationTypeName"])
+            loader.add_value('wigosStationIdentifiers', item["wigosStationIdentifiers"])
+            yield loader.load_item()

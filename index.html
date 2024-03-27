@@ -54,6 +54,7 @@
         }
         .map-overlay {
             position: absolute;
+            top: 20px;
             z-index: 1;
         }
         .map-overlay top {
@@ -63,11 +64,7 @@
             border: none;
         }
         .map-overlay select {
-            font-size: larger;
-            padding: 5px;
-            background-color: whitesmoke;
-            color: slateblue;
-            font-weight: 300;
+            font-size: x-large;
         }
 
     </style>
@@ -117,7 +114,7 @@
         const route = (hash.indexOf('_') > 0) ? hash.slice(1) : '';
         data['ogimet'] = await fetch('./data/ogimet/ogimet.geojson').then(response => response.json());
         const findWMO = (widOrIcao) => data['ogimet'].features.find(o => o.properties.id === widOrIcao || o.properties.icao === widOrIcao);
-        const routeCoordinates = [];
+        let routeCoordinates = [];
         //Transform list of WMO indexes to a list of coordinates
         for (widOrIcao of route.split('_').filter(w => w !== '')) {
             wmo = findWMO(widOrIcao);
@@ -211,8 +208,21 @@
             source: 'wmo',
             filter: ['!', ['has', 'point_count']],
             paint: {
-                'circle-color': '#6a5acd',
-                'circle-radius': 4,
+                'circle-color': [
+                    'case',
+                    ['any',
+                        ['==', ["get", "closed"], true],
+                        ['all', ['has', 'operational'], ['==', ["get", "operational"], false]]
+                    ], '#ff0000',
+                    '#6a5acd'
+                ],
+                'circle-radius': [
+                    "interpolate", ["linear"], ["zoom"],
+                    // zoom is 1 (or less) -> circle radius will be 4px
+                    1, 3,
+                    // zoom is 10 (or greater) -> circle radius will be 16px
+                    10, 12
+                ],
                 'circle-stroke-width': 1,
                 'circle-stroke-color': '#f5f5f5'
             }
@@ -268,17 +278,23 @@
             }
             descriptionLines.push('<dl>');
             const linkOrId = (initialSource==='ogimet')
-                ? `<a href="https://www.ogimet.com/cgi-bin/gsynres?ord=REV&ndays=7&ind=${properties['id']}" target="_blank">${properties['id']}</a>`
-                : properties['id'];
+                ? `<a href="https://www.ogimet.com/cgi-bin/gsynres?ord=REV&ndays=7&ind=${properties['wid']}" target="_blank">${properties['wid']}</a>`
+                : properties['wid'];
             descriptionLines.push(
                 `<dt class="wmo">wmo</dt>` +
-                `<dd> ${properties['icao'] ? properties['icao'] + ' / ' : ''}${linkOrId}</dd>`
+                `<dd> ${properties['icao'] ? properties['icao'] + ' / ' : ''}${properties['wid'] ? linkOrId : ''}</dd>`
             );
             if (properties["country"]) {
                 descriptionLines.push(`<dt class="country">country</dt><dd>${properties["country"]}</dd>`);
             }
             if (properties["wigos"]) {
                 descriptionLines.push(`<dt class="oscar">oscar</dt><dd><a href="https://oscar.wmo.int/surface/index.html#/search/station/stationReportDetails/${properties['wigos']}" target="_blank">${properties['wigos']}</a></dd>`);
+            }
+            if (properties["closed"]){
+                descriptionLines.push(`<dt class="status">status</dt><dd>closed</dd`)
+            }
+            if (properties["operational"] === false){
+                descriptionLines.push(`<dt class="status">status</dt><dd>not operational</dd>`)
             }
             descriptionLines.push('</dl>')
             popup.setLngLat(coordinates).setHTML(`<div class="wmo-popup">${descriptionLines.join('')}</div>`).addTo(map);

@@ -10,7 +10,8 @@ from scrapy.exceptions import DropItem
 from itemloaders.processors import TakeFirst, Compose
 from decimal import *
 
-ICAO_DEFAULT = '----'
+NOT_CLOSED = '----'
+MISSING_WIGOS = '0-0-0-MISSING'
 
 def convert(dms):
     m = re.match(r"^(\d{2})-(\d{2})(?:-(\d{2}))?(N?|S)$", dms) # latitude with optional N
@@ -30,7 +31,7 @@ def only_with_letters(icao):
     m = re.match(r"^[A-Z]{4}$", icao)
     if m:
         return icao
-    return ICAO_DEFAULT
+    return None # also for '----'
 
 
 class OgimetStationLoader(ItemLoader):
@@ -38,25 +39,55 @@ class OgimetStationLoader(ItemLoader):
     icao_out = Compose(TakeFirst(), only_with_letters)
     latitude_out = Compose(TakeFirst(), convert)
     longitude_out = Compose(TakeFirst(), convert)
+    wigos_out = Compose(TakeFirst(), lambda wigos : None if wigos == MISSING_WIGOS else wigos, stop_on_none=False)
+    closed_out = Compose(TakeFirst(), lambda closed: False if closed == NOT_CLOSED else True)
+
 
 class OgimetStationItem(scrapy.Item):
-    wigos = scrapy.Field()
-    wid = scrapy.Field()
-    icao = scrapy.Field()
-    name = scrapy.Field()
+    item_uid = 'wid' # used by DuplicatesPipeline
+    wigos = scrapy.Field(geojson_property=True)
+    wid = scrapy.Field(geojson_property=True)
+    icao = scrapy.Field(geojson_property=True)
+    name = scrapy.Field(geojson_property=True)
     longitude = scrapy.Field()
     latitude = scrapy.Field()
     altitude = scrapy.Field()
     established = scrapy.Field()
-    closed = scrapy.Field()
-    country = scrapy.Field()
+    closed = scrapy.Field(geojson_property=True)
+    country = scrapy.Field(geojson_property=True)
+
+
+class OscarStationLoader(ItemLoader):
+    default_output_processor = TakeFirst()
+    operational_out = Compose(TakeFirst(), lambda operational: True if operational == "operational" else False)
+
 
 class OscarStationItem(scrapy.Item):
-    wigos = scrapy.Field()
-    wid = scrapy.Field()
-    name = scrapy.Field()
-    country = scrapy.Field()
+    item_uid = 'wigos' # used by DuplicatesPipeline
+    wigos = scrapy.Field(geojson_property=True)
+    wid = scrapy.Field(geojson_property=True)
+    name = scrapy.Field(geojson_property=True)
+    country = scrapy.Field(geojson_property=True)
     latitude = scrapy.Field()
     longitude = scrapy.Field()
-    operational = scrapy.Field()
+    operational = scrapy.Field(
+        geojson_property=True,
+        serializer=lambda operational: True if operational == "operational" else False,
+    )
     type = scrapy.Field()
+    wigosStationIdentifiers = scrapy.Field(geojson_property=True)
+
+
+# Filter Class used for csv/json only (not geojson)
+class StationFilter:
+    def __init__(self, feed_options):
+        self.feed_options = feed_options
+
+    def accepts(self, item):
+        if isinstance(item, OscarStationItem):
+            if "operational" in item and not item["operational"]:
+                return False
+        elif isinstance(item, OgimetStationItem):
+            if "closed" in item and item["closed"]:
+                return False
+        return True
