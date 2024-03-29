@@ -164,7 +164,7 @@
         const initialSource = document.getElementById('source').value;
         const route = (hash.indexOf('_') > 0) ? hash.slice(1) : '';
         data['ogimet'] = await fetch('./data/ogimet/ogimet.geojson').then(response => response.json());
-        const findWMO = (widOrIcao) => data['ogimet'].features.find(o => o.properties.id === widOrIcao || o.properties.icao === widOrIcao);
+        const findWMO = (widOrIcao) => data['ogimet'].features.find(o => o.properties.wid === widOrIcao || o.properties.icao === widOrIcao);
         let routeCoordinates = [];
         //Transform list of WMO indexes to a list of coordinates
         for (widOrIcao of route.split('_').filter(w => w !== '')) {
@@ -214,7 +214,8 @@
             type: 'symbol',
             source: 'wmo',
             layout: {
-                'icon-allow-overlap': false,
+                'icon-allow-overlap': true,
+                'icon-ignore-placement': true,
                 'icon-image': [
                     'case',
                     ['==', ["get", "closed"], true], "maki:cross",
@@ -237,9 +238,9 @@
                     'case',
                     ["==", ['get', 'wid'], null], '#ffa323',
                     ["==",['get', 'wigos'], null], '#f00',
-                    "rgba(0, 0, 0, 0)"
+                    "#fff"
                 ],
-                'icon-halo-width': 1
+                'icon-halo-width': 2
             }
         });
 
