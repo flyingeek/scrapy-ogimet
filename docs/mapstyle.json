@@ -12,6 +12,10 @@
         {
             "id": "maki",
             "url": "https://flyingeek.github.io/scrapy-ogimet/sprites/maki_sprite"
+        },
+        {
+            "id": "custom",
+            "url": "https://flyingeek.github.io/scrapy-ogimet/sprites/custom_sprite"
         }
     ],
     "layers": [
