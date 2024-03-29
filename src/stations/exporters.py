@@ -5,6 +5,7 @@ class GeoJsonItemExporter(JsonItemExporter):
 
     def __init__(self, file, **kwargs):
         super().__init__(file, **kwargs)
+        self.spacer = b''
         if self.indent is not None and self.indent > 0:
             self.spacer = b' ' * self.indent
 
@@ -32,6 +33,9 @@ class GeoJsonItemExporter(JsonItemExporter):
             properties=properties
         )
         data = to_bytes(self.encoder.encode(itemdict), self.encoding)
-        data = b"\n".join([(self.spacer * 2) + line for line in data.splitlines()])
+        if self.indent is not None:
+            data = b"\n".join([(self.spacer * 2) + line for line in data.splitlines()])
+        else:
+            data = data.replace(b'\n', b'');
         self._add_comma_after_first()
         self.file.write(data)

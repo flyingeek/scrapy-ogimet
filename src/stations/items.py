@@ -14,36 +14,26 @@ OGIMET_EMPTY = '----'
 MISSING_WIGOS = '0-0-0-MISSING'
 
 def convert(dms):
-    m = re.match(r"^(\d{2})-(\d{2})(?:-(\d{2}))?(N?|S)$", dms) # latitude with optional N
+    m = re.match(r"^(?P<degrees>\d{2})-(?P<minutes>\d{2})(?:-(?P<seconds>\d{2}))?(?P<orientation>N?|S)$", dms) # latitude with optional N
     if not m:
-        m = re.match(r"^(\d{2,3})-(\d{2})(?:-(\d{2}))?([EW])$", dms) # longitude
+        m = re.match(r"^(?P<degrees>\d{2,3})-(?P<minutes>\d{2})(?:-(?P<seconds>\d{2}))?(?P<orientation>[EW])$", dms) # longitude
         if not m:
             raise DropItem(f"Invalid latitude {dms}")
-    direction = m.group(4) if m.group(4) else 'N'
-    sign = -1 if direction in ['S', 'W'] else 1
-    deg = float(m.group(1))
-    minutes = float(m.group(2))
-    seconds = float(m.group(3)) if m.group(3) else 0
-    cents = (minutes/60) + (seconds/3600)
-    return sign * (deg + cents)
-
-def only_with_letters(icao):
-    m = re.match(r"^[A-Z]{4}$", icao)
-    if m:
-        return icao
-    return None # also for '----'
+    sign = -1 if (m.group('orientation') or 'N') in ['S', 'W'] else 1
+    cents = (float(m.group('minutes'))/60) + (float(m.group('seconds') or 0)/3600)
+    return sign * (float(m.group('degrees')) + cents)
 
 def sort_primary_first(values):
     primary = [o['wigosStationIdentifier'] for o in values if o['primary'] == True]
     others = [o['wigosStationIdentifier'] for o in values if o['primary'] == False]
-    return primary + others
+    return ";".join(primary + others)  # use or ';' to be compatible with comma delimited csv
 
 class OgimetStationLoader(ItemLoader):
     default_output_processor = TakeFirst()
-    icao_out = Compose(TakeFirst(), only_with_letters)
+    icao_out = Compose(TakeFirst(), lambda icao: None if icao == OGIMET_EMPTY else icao)
     latitude_out = Compose(TakeFirst(), convert)
     longitude_out = Compose(TakeFirst(), convert)
-    wigos_out = Compose(TakeFirst(), lambda wigos : None if wigos == MISSING_WIGOS else wigos, stop_on_none=False)
+    wigos_out = Compose(TakeFirst(), lambda wigos : None if wigos == MISSING_WIGOS else wigos)
     closed_out = Compose(TakeFirst(), lambda closed: False if closed == OGIMET_EMPTY else True)
 
 
@@ -63,6 +53,7 @@ class OgimetStationItem(scrapy.Item):
 
 class OscarStationLoader(ItemLoader):
     default_output_processor = TakeFirst()
+    wid_out = Compose(TakeFirst(), str)
     wigosStationIdentifiers_out = Compose(sort_primary_first)
 
 
@@ -77,18 +68,3 @@ class OscarStationItem(scrapy.Item):
     operational = scrapy.Field()
     type = scrapy.Field(geojson_property=False)
     wigosStationIdentifiers = scrapy.Field()
-
-
-# Filter Class used for csv/json only (not geojson)
-class StationFilter:
-    def __init__(self, feed_options):
-        self.feed_options = feed_options
-
-    def accepts(self, item):
-        if isinstance(item, OscarStationItem):
-            if "operational" in item and item["operational"] != 'operational':
-                return False
-        elif isinstance(item, OgimetStationItem):
-            if "closed" in item and item["closed"]:
-                return False
-        return True

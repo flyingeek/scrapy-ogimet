@@ -49,10 +49,10 @@ class DuplicatesPipeline:
             duplicates = [i for i in self.seen if i[item_uid]==adapter[item_uid]]
             duplicates.append(adapter.asdict())
             notify = True
-            if len(duplicates) == 2 and all((duplicates[0].get(k) == v for k, v in duplicates[1].items())):
+            if len(duplicates) == 2 and all((duplicates[0].get(k) == v for k, v in duplicates[1].items() if k != 'established')):
                 notify = False
             if isinstance(item, OgimetStationItem):
-                if (duplicates[1]['closed'] == True):
+                if all((o['closed'] == True for o in duplicates)):
                     notify = False
             if notify:
                 print(f"---- Duplicates found (keeping first): \n{json.dumps(duplicates,sort_keys=True, indent=4)}")

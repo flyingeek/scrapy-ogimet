@@ -50,9 +50,10 @@ TELNETCONSOLE_ENABLED = False
 
 # Enable or disable downloader middlewares
 # See https://docs.scrapy.org/en/latest/topics/downloader-middleware.html
-#DOWNLOADER_MIDDLEWARES = {
-#    "stations.middlewares.OgimetDownloaderMiddleware": 543,
-#}
+DOWNLOADER_MIDDLEWARES = {
+    "scrapy.downloadermiddlewares.httpcache.HttpCacheMiddleware": 900,
+    #"stations.middlewares.OgimetDownloaderMiddleware": 543,
+}
 
 # Enable or disable extensions
 # See https://docs.scrapy.org/en/latest/topics/extensions.html
@@ -81,11 +82,11 @@ ITEM_PIPELINES = {
 
 # Enable and configure HTTP caching (disabled by default)
 # See https://docs.scrapy.org/en/latest/topics/downloader-middleware.html#httpcache-middleware-settings
-#HTTPCACHE_ENABLED = True
-#HTTPCACHE_EXPIRATION_SECS = 0
-#HTTPCACHE_DIR = "httpcache"
+HTTPCACHE_ENABLED = True
+HTTPCACHE_EXPIRATION_SECS = 0
+HTTPCACHE_DIR = "httpcache"
 #HTTPCACHE_IGNORE_HTTP_CODES = []
-#HTTPCACHE_STORAGE = "scrapy.extensions.httpcache.FilesystemCacheStorage"
+HTTPCACHE_STORAGE = "scrapy.extensions.httpcache.FilesystemCacheStorage"
 
 # Set settings whose default value is deprecated to a future-proof value
 REQUEST_FINGERPRINTER_IMPLEMENTATION = "2.7"
@@ -96,31 +97,33 @@ FEED_EXPORTERS = {
     "geojson": "stations.exporters.GeoJsonItemExporter"
 }
 FEEDS = {
-    '../docs/data/%(name)s/%(name)s_%(time)s.csv': {
+    '../docs/data/%(name)s/%(name)s.csv': {
         'format': 'csv',
         'encoding': 'utf8',
         'store_empty': False,
         'indent': 2,
-        'item_filter': 'stations.items.StationFilter', # only open/operational stations in csv
+        'overwrite': True,
         'item_export_kwargs': {
             'export_empty_fields': True,
         },
+        'postprocessing': ['stations.postprocessing.DropDuplicates'],
     },
-    '../docs/data/%(name)s/%(name)s_%(time)s.json': {
+    '../docs/data/%(name)s/%(name)s.json': {
         'format': 'json',
         'encoding': 'utf8',
         'store_empty': False,
         'indent': 2,
-        'item_filter': 'stations.items.StationFilter', # only open/operational stations in json
+        'overwrite': True,
         'item_export_kwargs': {
             'export_empty_fields': True,
         },
+        'postprocessing': ['stations.postprocessing.DropDuplicates'],
     },
     '../docs/data/%(name)s/%(name)s.geojson': {
         'format': 'geojson',
         'encoding': 'utf8',
         'store_empty': False,
-        'indent': 2,
+        'indent': None,
         'overwrite': True,
         'item_export_kwargs': {
             'export_empty_fields': True,

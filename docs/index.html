@@ -44,7 +44,7 @@
         .wmo-popup dt:after {
             content: ":";
         }
-        dt.oscar:not(:has(+ dd>a)) {
+        dt.oscar.missing, dt.oscar:not(:has(+ dd>a)) {
             color: red;
         }
         dt.wmo:not(:has(+ dd>a)) {
@@ -72,9 +72,9 @@
             border: none;
         }
         .map-overlay select {
-            font-size: x-large;
+            font-size: large;
             padding: 5px 10px;
-            visibility: hidden;
+            display: none;
         }
 
     </style>
@@ -88,11 +88,20 @@
                     <select id="source" name="source" title="source of data">
                         <option value="ogimet" selected>Ogimet</option>
                         <option value="oscar">Oscar</option>
-                         <hr />
-                        <optgroup label="Cluster">
-                            <option value="ogimet_cluster">Ogimet</option>
-                            <option value="oscar_cluster">Oscar</option>
-                        </optgroup>
+                    </select>
+                    <select id="filter_ogimet" name="ogimet-filter" title="ogimet filter data">
+                        <option value="all" selected>All</option>
+                        <option value="open">Open</option>
+                        <option value="closed">Closed</option>
+                        <option value="wigos">With Wigos</option>
+                        <option value="no-wigos">Missing Wigos</option>
+                    </select>
+                    <select id="filter_oscar" name="oscar-filter" title="oscar filter data">
+                        <option value="all" selected>All</option>
+                        <option value="operational">Operational</option>
+                        <option value="non-operational">Non operational</option>
+                        <option value="closed">Closed</option>
+                        <option value="legacy">Legacy</option>
                     </select>
                 </fieldset>
             </div>
@@ -102,8 +111,8 @@
     const data = {};
     const hash = window.location.hash;
     const getAttribution = (source) => (source === 'oscar')
-        ? `${data['oscar'].features.length} WMO from source <a href="https://oscar.wmo.int" target="_blank">oscar.wmo.int</a>`
-        : `${data['ogimet'].features.length} WMO from source <a href="https://www.ogimet.com" target="_blank">ogimet.com</a>`;
+        ? `${data['oscar'].features.length} WMO from <a href="https://oscar.wmo.int" target="_blank">oscar.wmo.int</a>`
+        : `${data['ogimet'].features.length} WMO from <a href="https://www.ogimet.com" target="_blank">ogimet.com</a>`;
     const map = new maplibregl.Map({
         container: 'map',
         style: 'https://flyingeek.github.io/scrapy-ogimet/mapstyle.json', // style URL
@@ -114,10 +123,42 @@
     });
     document.getElementById('source').addEventListener('change', e => {
         const [source, cluster] = e.target.value.split("_");
+        document.getElementById('filter_ogimet').style.display = (source === 'ogimet') ? 'initial' : 'none';
+        document.getElementById('filter_oscar').style.display = (source === 'oscar') ? 'initial' : 'none';
+        const changeEvent = new Event('change');
+        document.getElementById((source === 'ogimet') ? 'filter_ogimet' : 'filter_oscar').dispatchEvent(changeEvent);
         const wmoSource = map.getSource('wmo');
         wmoSource.workerOptions.cluster = !!cluster;
         wmoSource.setData(data[source]);
         wmoSource.attribution = getAttribution(source);
+    });
+    document.getElementById('filter_oscar').addEventListener('change', e => {
+        const selectValue = e.target.value;
+        let filter = null;
+        if (selectValue === 'non-operational') {
+            filter = ['!=', ["get", "operational"], 'operational'];
+        }else if (selectValue === 'operational') {
+            filter = ['==', ["get", "operational"], 'operational'];
+        }else if (selectValue === 'closed') {
+            filter = ['==', ["get", "operational"], 'closed'];
+        }else if (selectValue === 'legacy') {
+            filter = ['!=', ["get", "wid"], null];
+        }
+        map.setFilter('unclustered-stations', filter);
+    });
+    document.getElementById('filter_ogimet').addEventListener('change', e => {
+        const selectValue = e.target.value;
+        let filter = null;
+        if (selectValue === 'closed') {
+            filter = ['==', ["get", "closed"], true];
+        }else if (selectValue === 'open') {
+            filter = ['==', ["get", "closed"], false];
+        }else if (selectValue === 'no-wigos') {
+            filter = ['==', ["get", "wigos"], null];
+        }else if (selectValue === 'wigos') {
+            filter = ['!=', ["get", "wigos"], null];
+        }
+        map.setFilter('unclustered-stations', filter);
     });
     map.on('load', async () => {
         const initialSource = document.getElementById('source').value;
@@ -169,100 +210,25 @@
         });
 
         map.addLayer({
-            id: 'clusters',
-            type: 'circle',
-            source: 'wmo',
-            filter: ['has', 'point_count'],
-            paint: {
-                // Use step expressions (https://maplibre.org/maplibre-style-spec/#expressions-step)
-                // with three steps to implement three types of circles:
-                //   * Blue, 20px circles when point count is less than 100
-                //   * Yellow, 30px circles when point count is between 100 and 750
-                //   * Pink, 40px circles when point count is greater than or equal to 750
-                'circle-color': [
-                    'step',
-                    ['get', 'point_count'],
-                    '#51bbd6',
-                    100,
-                    '#f1f075',
-                    750,
-                    '#f28cb1'
-                ],
-                'circle-radius': [
-                    'step',
-                    ['get', 'point_count'],
-                    20,
-                    100,
-                    30,
-                    750,
-                    40
-                ]
-            }
-        });
-
-        map.addLayer({
-            id: 'cluster-count',
+            id: 'unclustered-stations',
             type: 'symbol',
             source: 'wmo',
-            filter: ['has', 'point_count'],
             layout: {
-                'text-field': '{point_count_abbreviated}',
-                //'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
-                'text-size': 12
-            }
-        });
-        map.addLayer({
-            id: 'unclustered-airport-operational',
-            type: 'symbol',
-            source: 'wmo',
-            filter: ['all',
-                ['!', ['has', 'point_count']],
-                ['all',
-                        ['!=', ["get", "closed"], true],
-                        ['!=', ["get", "operational"], 'operational'],
-                        ['!=', ["get", "icao"], null]
-                ]
-            ],
-            layout: {
-                'icon-image': 'maki:airport',
-                'icon-size': [
-                    "interpolate", ["linear"], ["zoom"],
-                    // zoom is 1 (or less
-                    1, 0.6,
-                    // zoom is 10 (or greater)
-                    10, 2.4
-                ],
-            },
-            paint: {
-                'icon-color': "#6a5acd",
-                'icon-halo-color': [
+                'icon-allow-overlap': false,
+                'icon-image': [
                     'case',
-                    ["==", ['get', 'wid'], null], '#ffa323',
-                    ["==",['get', 'wigos'], null], '#f00',
-                    "rgba(0, 0, 0, 0)"
+                    ['==', ["get", "closed"], true], "maki:cross",
+                    ['==', ["get", "operational"], 'closed'], "maki:cross",
+                    ['all', ['has', 'operational'],['!=', ["get", "operational"], 'operational']], "maki:caution",
+                    ["all", ['has', 'icao'], ['!=', ["get", "icao"], null]], "maki:airfield"
+                    ,'custom:circle'
                 ],
-                'icon-halo-width': 1
-            }
-        });
-        map.addLayer({
-            id: 'unclustered-point-closed',
-            type: 'symbol',
-            source: 'wmo',
-            filter: ['all',
-                ['!', ['has', 'point_count']],
-                ['any',
-                        ['==', ["get", "closed"], true],
-                        ['==', ["get", "operational"], 'closed']
-                ]
-            ],
-            layout: {
-                'icon-image': 'maki:cross',
                 'icon-size': [
                     "interpolate", ["linear"], ["zoom"],
                     // zoom is 1 (or less
-                    1, 0.6,
+                    1, 0.8,
                     // zoom is 10 (or greater)
-                    10, 2.4
+                    6, 1.5
                 ],
             },
             paint: {
@@ -274,72 +240,6 @@
                     "rgba(0, 0, 0, 0)"
                 ],
                 'icon-halo-width': 1
-            }
-        });
-        map.addLayer({
-            id: 'unclustered-point-not-operational',
-            type: 'symbol',
-            source: 'wmo',
-            filter: ['all',
-                ['!', ['has', 'point_count']],
-                ['all', ['has', 'operational'], ['!=', ["get", "operational"], 'operational'], ['!=', ["get", "operational"], 'closed']]
-            ],
-            layout: {
-                'icon-image': 'maki:caution',
-                'icon-size': [
-                    "interpolate", ["linear"], ["zoom"],
-                    // zoom is 1 (or less
-                    1, 0.6,
-                    // zoom is 10 (or greater)
-                    10, 2.4
-                ],
-            },
-            paint: {
-                'icon-color': "#6a5acd",
-                 'icon-halo-color': [
-                    'case',
-                    ["==", ['get', 'wid'], null], '#ffa323',
-                    ["==",['get', 'wigos'], null], '#f00',
-                    "rgba(0, 0, 0, 0)"
-                ],
-                'icon-halo-width': 1
-            }
-        });
-        map.addLayer({
-            id: 'unclustered-point-operational',
-            type: 'circle',
-            source: 'wmo',
-            filter: ['all',
-                ['!', ['has', 'point_count']],
-                ['all',
-                        ['!=', ["get", "closed"], true],
-                        ["any", ["!", ["has", "operational"]], ['==', ["get", "operational"], 'operational']],
-                        ["any", ["!", ["has", "icao"]], ['==', ["get", "icao"], null]]
-                ]
-            ],
-            paint: {
-                'circle-color': [
-                    'case',
-                    ['any',
-                        ['==', ["get", "closed"], true],
-                        ['all', ['has', 'operational'], ['==', ["get", "operational"], false]]
-                    ], '#ff0000',
-                    '#6a5acd'
-                ],
-                'circle-radius': [
-                    "interpolate", ["linear"], ["zoom"],
-                    // zoom is 1 (or less) -> circle radius will be 4px
-                    1, 3,
-                    // zoom is 10 (or greater) -> circle radius will be 16px
-                    10, 12
-                ],
-                'circle-stroke-width': 1,
-                'circle-stroke-color': [
-                    'case',
-                    ["==", ['get', 'wid'], null], '#ffa323',
-                    ["==",['get', 'wigos'], null], '#f00',
-                    '#f5f5f5'
-                ]
             }
         });
 
@@ -357,19 +257,6 @@
                 'line-width': 5,
                 'line-opacity': 0.8
             }
-        });
-
-        // inspect a cluster on click
-        map.on('click', 'clusters', async (e) => {
-            const features = map.queryRenderedFeatures(e.point, {
-                layers: ['clusters']
-            });
-            const clusterId = features[0].properties.cluster_id;
-            const zoom = await map.getSource('wmo').getClusterExpansionZoom(clusterId);
-            map.easeTo({
-                center: features[0].geometry.coordinates,
-                zoom
-            });
         });
         // Create a popup, but don't add it to the map yet.
         const popup = new maplibregl.Popup({
@@ -407,12 +294,14 @@
                 descriptionLines.push(`<dt class="country">country</dt><dd>${properties["country"]}</dd>`);
             }
             if (properties["wigosStationIdentifiers"]) {
-                const links = JSON.parse(properties["wigosStationIdentifiers"]).map(wigosId => `<a href="https://oscar.wmo.int/surface/index.html#/search/station/stationReportDetails/${wigosId}" target="_blank">${wigosId}</a>`);
+                const links = (properties["wigosStationIdentifiers"]).split(';').map(wigosId => `<a href="https://oscar.wmo.int/surface/index.html#/search/station/stationReportDetails/${wigosId}" target="_blank">${wigosId}</a>`);
                 descriptionLines.push(`<dt class="oscar">oscar</dt><dd>${links.join('<br>')}</dd>`);
             }else if (properties["wigos"]) {
                 descriptionLines.push(`<dt class="oscar">oscar</dt><dd><a href="https://oscar.wmo.int/surface/index.html#/search/station/stationReportDetails/${properties['wigos']}" target="_blank">${properties['wigos']}</a></dd>`);
+            }else if (properties["wid"]) {
+                descriptionLines.push(`<dt class="oscar missing">oscar</dt><dd><a href="https://oscar.wmo.int/surface/index.html#/search/station/stationReportDetails/0-20000-0-${properties['wid']}" target="_blank">missing</a></dd>`);
             }else{
-                descriptionLines.push(`<dt class="oscar">oscar</dt><dd>missing</dd>`)
+                descriptionLines.push(`<dt class="oscar missing">oscar</dt><dd>missing</dd>`)
             }
             if (properties["closed"]){
                 descriptionLines.push(`<dt class="status">status</dt><dd>closed</dd`)
@@ -429,26 +318,19 @@
         };
         const cursorDefault = () => map.getCanvas().style.cursor = '';
 
-        map.on('click', 'unclustered-point-operational', showPopup);
-        map.on('click', 'unclustered-airport-operational', showPopup);
-        map.on('click', 'unclustered-point-not-operational', showPopup);
-        map.on('click', 'unclustered-point-closed', showPopup);
+        map.on('click', 'unclustered-stations', showPopup);
 
-        map.on('mouseover', 'unclustered-point-operational', cursorPointerAndShowPopup);
-        map.on('mouseover', 'unclustered-airport-operational', cursorPointerAndShowPopup);
-        map.on('mouseover', 'unclustered-point-not-operational', cursorPointerAndShowPopup);
-        map.on('mouseover', 'unclustered-point-closed', cursorPointerAndShowPopup);
+        map.on('mouseover', 'unclustered-stations', cursorPointerAndShowPopup);
 
-        map.on('mouseleave', 'unclustered-point-operational', cursorDefault);
-        map.on('mouseleave', 'unclustered-airport-operational', cursorDefault);
-        map.on('mouseleave', 'unclustered-point-not-operational', cursorDefault);
-        map.on('mouseleave', 'unclustered-point-closed', cursorDefault);
+        map.on('mouseleave', 'unclustered-stations', cursorDefault);
 
-        map.on('mouseenter', 'clusters', () => map.getCanvas().style.cursor = 'pointer');
-        map.on('mouseleave', 'clusters', cursorDefault);
-
-        data['oscar'] = await fetch('./data/oscar/oscar.geojson').then(response => response.json());
-        document.getElementById('source').style.visibility = "visible";
+        data['oscar'] = await fetch('./data/oscar/oscar.geojson').then(response => response.json()).then(json => {
+            // only keep oscar stations with a legacy ID
+            // json.features = json.features.filter(o => o.properties.wid);
+            return json;
+        });
+        document.getElementById('source').style.display = "initial";
+        document.getElementById('filter_ogimet').style.display = "initial";
     });
 </script>
 </body>

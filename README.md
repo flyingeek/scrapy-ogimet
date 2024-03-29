@@ -3,9 +3,8 @@
 
 Extract in csv/json/geojson format the ogimet website or the oscar website.
 
-The CSV/JSON file contains only open or operational stations.
-The GEOJSON file does not apply this filter and instead you find in the properties
-a closed attribute for ogimet or an operational attribute for oscar.
+In the CSV/JSON file, duplicates are dropped in postprocessing,
+we do not even keep the first one.
 
 ## Interactive Map
 
@@ -34,6 +33,21 @@ scrapy crawl ogimet -L INFO
 # oscar can only fetch all countries
 scrapy crawl oscar -L INFO
 ```
+
+### Cache
+
+Cache is enabled by default
+
+```sh
+# Disable cache temporary from command line
+scrapy crawl ogimet -L INFO -s HTTPCACHE_ENABLED=False
+# erase the cache
+rm -rf .scrapy/httpcache/ogimet
+rm -rf .scrapy/httpcache/oscar
+
+```
+
+### Output
 
 Since the interactive map runs on github pages from the docs folder,
 data are extracted in the docs/data subfolder as csv, json and geojson

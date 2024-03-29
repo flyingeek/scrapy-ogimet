@@ -3,3 +3,4 @@ venv
 __pycache__
 docs/data/**/*.csv
 docs/data/**/*.json
+.scrapy
