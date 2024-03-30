@@ -44,35 +44,38 @@ class OscarSpider(scrapy.Spider):
 
     def getWid(self, wigos_id):
         wid = self.legacy.get(wigos_id, None)
-        if not wid:
-            m = re.search(r"^0-2000[0-1]-0-(\d{5})$",wigos_id)
-            if m:
-                wid = m.group(1)
-                logging.info(f"added legacy {wid} for {wigos_id}")
         return wid
 
     def parse_stations(self, response):
         logging.info(f"Parsing oscar stations")
         for item in response.json()["stationSearchResults"]:
-            loader = OscarStationLoader(OscarStationItem())
+            if "wigosId" not in item:
+                continue  # There is some stations without wigosIdenditifier, skip them...
             wid = None
-            if "wigosStationIdentifiers" in item:
-                loader.add_value('wigosStationIdentifiers', item["wigosStationIdentifiers"])
+            if item['wigosId'] not in [wigos["wigosStationIdentifier"] for wigos in item["wigosStationIdentifiers"]]:
+                # ensure wigosId is in wigosStationIdentifiers else log as an error
+                logging.error(f"{item['wigosId']} not in wigosStationIdentifiers")
+            for wigos in item["wigosStationIdentifiers"]:
+                wid = self.getWid(wigos["wigosStationIdentifier"])
+                if wid:
+                    break
+            wid_guess = None
+            if not wid:
                 for wigos in item["wigosStationIdentifiers"]:
-                    wid = self.getWid(wigos["wigosStationIdentifier"])
-                    if wid:
+                    m = re.search(r"^0-2000[0-1]-0-(\d{5})$",wigos["wigosStationIdentifier"])
+                    if m:
+                        wid_guess = m.group(1)
                         break
-            elif "wigosId" in item:
-                wid = self.getWid(item["wigosId"])
-            else:
-                continue
 
+            loader = OscarStationLoader(OscarStationItem())
             loader.add_value('wigos', item["wigosId"])
             loader.add_value('wid', wid)
+            loader.add_value('wid_guess', wid_guess)
             loader.add_value('name', item["name"])
             loader.add_value('country', item["territory"])
             loader.add_value('latitude', item["latitude"])
             loader.add_value('longitude', item["longitude"])
             loader.add_value('operational', item["stationStatusCode"])
             loader.add_value('type', item["stationTypeName"])
+            loader.add_value('wigosStationIdentifiers', item["wigosStationIdentifiers"])
             yield loader.load_item()

@@ -61,6 +61,7 @@ class OscarStationItem(scrapy.Item):
     item_uid = 'wigos' # used by DuplicatesPipeline
     wigos = scrapy.Field()
     wid = scrapy.Field()
+    wid_guess = scrapy.Field()
     name = scrapy.Field()
     country = scrapy.Field()
     latitude = scrapy.Field()

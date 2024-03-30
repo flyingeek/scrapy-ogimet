@@ -44,11 +44,17 @@
         .wmo-popup dt:after {
             content: ":";
         }
+        dt.wmo.guess + dd:after {
+            content: " (guess)";
+        }
         dt.oscar.missing, dt.oscar:not(:has(+ dd>a)) {
             color: red;
         }
-        dt.wmo:not(:has(+ dd>a)) {
+        dt.wmo:not(:has(+ dd>a)){
             color: darkorange;
+        }
+        dt.wmo.guess {
+            color: darkcyan;
         }
         .wmo-popup dd {
             grid-column-start: 2;
@@ -142,7 +148,7 @@
         }else if (selectValue === 'closed') {
             filter = ['==', ["get", "operational"], 'closed'];
         }else if (selectValue === 'legacy') {
-            filter = ['!=', ["get", "wid"], null];
+            filter = ["any", ['!=', ["get", "wid"], null], ['!=', ["get", "wid_guess"], null]];
         }
         map.setFilter('unclustered-stations', filter);
     });
@@ -233,10 +239,13 @@
                 ],
             },
             paint: {
-                'icon-color': "#6a5acd",
+                'icon-color': ["case",
+                    ["all", ["==", ['get', 'wid'], null], ['has', 'wid_guess'], ["!=", ['get', 'wid_guess'], null]], '#008B8B',
+                    "#6a5acd"
+                ],
                  'icon-halo-color': [
                     'case',
-                    ["==", ['get', 'wid'], null], '#ffa323',
+                    ["all", ["==", ['get', 'wid'], null], ["==", ['get', 'wid_guess'], null]], '#ffa323',
                     ["==",['get', 'wigos'], null], '#f00',
                     "#fff"
                 ],
@@ -282,13 +291,13 @@
             descriptionLines.push('<dl>');
             const parts = [];
             if (properties['icao']) parts.push(properties['icao']);
-            if (properties['wid']) {
-                parts.push(`<a href="https://www.ogimet.com/cgi-bin/gsynres?ord=REV&ndays=7&ind=${properties['wid']}" target="_blank">${properties['wid']}</a>`);
+            if (properties['wid'] || properties['wid_guess']) {
+                parts.push(`<a href="https://www.ogimet.com/cgi-bin/gsynres?ord=REV&ndays=7&ind=${properties['wid'] || properties['wid_guess'] }" target="_blank">${properties['wid'] || properties['wid_guess']}</a>`);
             } else {
                 parts.push(`missing`);
             }
             descriptionLines.push(
-                `<dt class="wmo">wmo</dt>` +
+                `<dt class="wmo${(properties['wid_guess']) ? ' guess' : ''}">wmo</dt>` +
                 `<dd> ${parts.join('&nbsp;/&nbsp;')}</dd>`
             );
             if (properties["country"]) {
