@@ -37,7 +37,9 @@ class DropDuplicates:
         format = self.feed_options['format']
         if format in ['json', 'csv']:
             self.buffer.seek(0)
-            df = pd.read_json(self.buffer) if format == 'json' else pd.read_csv(self.buffer)
+            # We do not want wid to be converted to int or float
+            # for csv using the same dtype cause error on 'False' value, so instead we use dtype=str
+            df = pd.read_json(self.buffer, dtype={"wid": False}) if format == 'json' else pd.read_csv(self.buffer, dtype=str, na_filter=False)
             subset = ['wigos'] # oscar
             if 'icao' in df.columns:
                 subset = ['wid'] # ogimet
