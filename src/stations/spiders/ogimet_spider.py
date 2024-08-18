@@ -25,6 +25,7 @@ class StationsSpider(scrapy.Spider):
         # duplicates are handled during post processing as we drop them all
         settings.set("ITEM_PIPELINES",{
             "stations.pipelines.OgimetInvalidPipeline": 310,
+            "stations.pipelines.OgimetCoordinatesPipeline": 311,
             # "stations.pipelines.DuplicatesPipeline": 400
         }, priority="spider")
 
