@@ -64,6 +64,7 @@ DOWNLOADER_MIDDLEWARES = {
 # Configure item pipelines
 # See https://docs.scrapy.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
+    "stations.pipeline.OgimetCoordinatesPipeline": 100,
     "stations.pipelines.DuplicatesPipeline": 400,
 }
 

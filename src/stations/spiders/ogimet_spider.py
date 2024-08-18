@@ -2,6 +2,7 @@ import logging
 import scrapy
 import os
 from stations.items import OgimetStationItem, OgimetStationLoader
+from scrapy.exceptions import DropItem
 import unicodedata
 
 def strip_accents(s):

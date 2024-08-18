@@ -6,8 +6,32 @@
 import json
 import re
 from itemadapter import ItemAdapter
-from stations.exceptions import DropDuplicateStation, DropClosedStation, DropNotLandFixed, DropInvalidStation
+from stations.exceptions import DropDuplicateStation, DropClosedStation, DropNotLandFixed, DropInvalidStation, DropInvalidCoordinates
 from stations.items import OgimetStationItem
+
+
+class OgimetCoordinatesPipeline:
+    def process_item(self, item, spider):
+        adapter = ItemAdapter(item)
+        if adapter.get('latitude'):
+            latitude = self.convert(adapter['latitude'])
+        if adapter.get('longitude'):
+            longitude = self.convert(adapter['longitude'])
+        if latitude is not None and longitude is not None:
+            adapter['latitude'] = latitude
+            adapter['longitude'] = longitude
+            return item
+        raise DropInvalidCoordinates(f"Invalid coordinates {adapter['longitude']} {adapter['latitude']}")
+
+    def convert(self, dms):
+        m = re.match(r"^(?P<degrees>\d{2})-(?P<minutes>\d{2})(?:-(?P<seconds>\d{2}))?(?P<orientation>N?|S)$", dms) # latitude with optional N
+        if not m:
+            m = re.match(r"^(?P<degrees>\d{2,3})-(?P<minutes>\d{2})(?:-(?P<seconds>\d{2}))?(?P<orientation>[EW])$", dms) # longitude
+            if not m:
+                return None
+        sign = -1 if (m.group('orientation') or 'N') in ['S', 'W'] else 1
+        cents = (float(m.group('minutes'))/60) + (float(m.group('seconds') or 0)/3600)
+        return sign * (float(m.group('degrees')) + cents)
 
 
 class OgimetClosedPipeline:

@@ -13,16 +13,6 @@ from decimal import *
 OGIMET_EMPTY = '----'
 MISSING_WIGOS = '0-0-0-MISSING'
 
-def convert(dms):
-    m = re.match(r"^(?P<degrees>\d{2})-(?P<minutes>\d{2})(?:-(?P<seconds>\d{2}))?(?P<orientation>N?|S)$", dms) # latitude with optional N
-    if not m:
-        m = re.match(r"^(?P<degrees>\d{2,3})-(?P<minutes>\d{2})(?:-(?P<seconds>\d{2}))?(?P<orientation>[EW])$", dms) # longitude
-        if not m:
-            raise DropItem(f"Invalid latitude {dms}")
-    sign = -1 if (m.group('orientation') or 'N') in ['S', 'W'] else 1
-    cents = (float(m.group('minutes'))/60) + (float(m.group('seconds') or 0)/3600)
-    return sign * (float(m.group('degrees')) + cents)
-
 def sort_primary_first(values):
     primary = [o['wigosStationIdentifier'] for o in values if o['primary'] == True]
     others = [o['wigosStationIdentifier'] for o in values if o['primary'] == False]
@@ -31,8 +21,8 @@ def sort_primary_first(values):
 class OgimetStationLoader(ItemLoader):
     default_output_processor = TakeFirst()
     icao_out = Compose(TakeFirst(), lambda icao: None if icao == OGIMET_EMPTY else icao)
-    latitude_out = Compose(TakeFirst(), convert)
-    longitude_out = Compose(TakeFirst(), convert)
+    latitude_out = TakeFirst()
+    longitude_out = TakeFirst()
     wigos_out = Compose(TakeFirst(), lambda wigos : None if wigos == MISSING_WIGOS else wigos)
     closed_out = Compose(TakeFirst(), lambda closed: False if closed == OGIMET_EMPTY else True)
 

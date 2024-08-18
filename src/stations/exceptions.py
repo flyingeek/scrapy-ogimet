@@ -7,6 +7,8 @@ class PoliteDropItem(DropItem):
         self.polite_loglevel = kw.pop("polite_log_level", self.polite_loglevel)
         super().__init__(*a)
 
+class DropInvalidCoordinates(PoliteDropItem):
+    pass
 
 class DropInvalidStation(PoliteDropItem):
     pass
