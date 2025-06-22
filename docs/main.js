@@ -135,7 +135,7 @@ map.on('load', async () => {
         }
         // adjust coordinates to allow maplibre to cross antemeridian
         const startLng = routeCoordinates.length > 0 ? routeCoordinates[routeCoordinates.length-1][0] : null;
-        const endLng = wmo.geometry.coordinates[0];
+        let endLng = wmo.geometry.coordinates[0];
         if (startLng && Math.abs((endLng - startLng)) > 180) {
             if (endLng - startLng >= 180) {
                 endLng -= 360;
